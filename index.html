@@ -360,8 +360,10 @@ body[data-theme="light"] .toggle-knob{ transform:translateX(18px); }
 .swatch.active{ border-color:var(--text-1); }
 #fontSizeSlider{ accent-color:var(--accent); }
 
-.reminder-form{ display:flex; gap:8px; margin-bottom:14px; }
-.reminder-form input[type="text"]{ flex:1; }
+.reminder-form{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.reminder-form input[type="text"]{ flex:1 1 130px; min-width:0; }
+.reminder-form input[type="time"]{ flex:1 1 110px; min-width:0; }
+.reminder-form button{ flex:0 0 auto; }
 .reminder-form input{
   background:var(--input-bg); border:1px solid var(--glass-border); border-radius:var(--radius-sm);
   padding:9px 10px; color:var(--text-1); font-family:inherit; font-size:.85rem; outline:none;
@@ -939,7 +941,21 @@ body[data-theme="light"] .toggle-knob{ transform:translateX(18px); }
       return raw ? JSON.parse(raw) : fallback;
     } catch (e) { return fallback; }
   }
-  function saveJSON(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+  let storageWarned = false;
+  function saveJSON(key, val) {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) {
+      // Storage can fail (private/incognito mode, quota exceeded, browser
+      // privacy settings, some file:// contexts). Never let that stop the
+      // UI from updating — the app keeps working in-memory for the session.
+      console.warn('Routinex: could not save to localStorage', e);
+      if (!storageWarned) {
+        storageWarned = true;
+        setTimeout(() => showToast('Storage is unavailable — changes won\'t be saved after you close this tab.', 'warn', 'fa-triangle-exclamation'), 300);
+      }
+    }
+  }
   function saveTasks() { saveJSON(LS_KEYS.tasks, tasks); }
   function saveSettings() { saveJSON(LS_KEYS.settings, settings); }
   function saveReminders() { saveJSON(LS_KEYS.reminders, reminders); }
@@ -1517,7 +1533,7 @@ body[data-theme="light"] .toggle-knob{ transform:translateX(18px); }
         r.firedOn = today;
         showToast(r.text, 'warn', 'fa-bell');
         if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Routinex reminder', { body: r.text });
+          try { new Notification('Routinex reminder', { body: r.text }); } catch (e) { console.warn('Routinex: notification failed', e); }
         }
       }
     });
